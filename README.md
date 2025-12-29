@@ -1,4 +1,8 @@
 # Interactive Planarity Solver
+> **Author:** [Muhammet Doğukan Bingöl]  
+> **Institution:** Karadeniz Technical University  
+> **Course / Project:** Graph Theory
+
 
 This repository presents an **interactive software tool for planarity testing and planar graph drawing**, developed as an academic project in graph theory.
 
