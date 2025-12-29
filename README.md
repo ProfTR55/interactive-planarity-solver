@@ -49,7 +49,7 @@ The application is deployed online using Streamlit Cloud:
 ### Option 2: Run Locally
 
 #### Requirements
-- Python 3.9 or newer
+- Python 3.11.x or newer
 
 #### Installation
 ```bash
