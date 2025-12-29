@@ -1,5 +1,6 @@
 # Interactive Planarity Solver
 > **Author:** [Muhammet Doğukan Bingöl]
+
 > **Institution:** Karadeniz Technical University  
 > **Course / Project:** Graph Theory
 
