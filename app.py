@@ -49,37 +49,9 @@ def build_adj(nodes: List[int], edges: List[EdgeT]) -> Dict[int, Set[int]]:
 	return adj
 
 
-def connected_components(nodes: List[int], edges: List[EdgeT]) -> List[List[int]]:
-	"""Bağlı bileşenleri bulur."""
-	adj = build_adj(nodes, edges)
-	seen: Set[int] = set()
-	comps: List[List[int]] = []
-	for s in nodes:
-		if s in seen:
-			continue
-		stack = [s]
-		seen.add(s)
-		comp = []
-		while stack:
-			x = stack.pop()
-			comp.append(x)
-			for y in adj[x]:
-				if y not in seen:
-					seen.add(y)
-					stack.append(y)
-		comps.append(comp)
-	return comps
 
 
-def edges_of_component(comp: List[int], edges: List[EdgeT]) -> List[EdgeT]:
-	"""Bir bileşene ait kenarları filtreler."""
-	S = set(comp)
-	out = []
-	for u, v in edges:
-		e = canon_edge(u, v)
-		if e[0] in S and e[1] in S:
-			out.append(e)
-	return sorted(list(set(out)))
+
 
 
 def euler_bound_planar(v: int, e: int) -> bool:
@@ -299,18 +271,26 @@ def try_insert_edge(rot: Rotation, u: int, v: int, face: List[Tuple[int, int]],
 	return new_rot
 
 
-def embedding_search_exact(nodes: List[int], edges: List[EdgeT], seed: int) -> bool:
+
+def is_planar_exact(nodes: List[int], edges: List[EdgeT]) -> bool:
+    # Planarsa embedding (rotation) bulunur, değilse None döner
+    return find_planar_rotation(nodes, edges, seed=97) is not None
+
+def find_planar_rotation(nodes: List[int], edges: List[EdgeT], seed: int = 97) -> Optional[Rotation]:
+	"""
+	Planarsa -> Rotation system (embedding)
+	Nonplanarsa -> None
+	Not: Bu fonksiyon embedding_search_exact'in aynısını yapar, sadece başarılı olunca rot döndürür.
+	"""
 	nodes = sorted(nodes)
 	edges = sorted(list(set(canon_edge(u, v) for u, v in edges if u != v)))
 
 	if not euler_bound_planar(len(nodes), len(edges)):
-		return False
-
-	if not edges:
-		return True
-
-	if len(edges) == 1:
-		return True
+		return None
+	if not edges or len(edges) == 1:
+		# trivially planar; basit bir rot üretelim
+		tree = spanning_tree(nodes, edges)
+		return init_tree_rotation(nodes, tree)
 
 	tree = spanning_tree(nodes, edges)
 	tree_set = set(tree)
@@ -335,16 +315,16 @@ def embedding_search_exact(nodes: List[int], edges: List[EdgeT], seed: int) -> b
 				cnt += len(cu) * len(cv)
 		return cnt
 
-	def backtrack(rot: Rotation, rem_edges: List[EdgeT]) -> bool:
+	def backtrack(rot: Rotation, rem_edges: List[EdgeT]) -> Optional[Rotation]:
 		if not rem_edges:
-			return True
+			return rot  # ✅ embedding bulundu
 
 		best_i = -1
-		best_cnt = 10 ** 9
+		best_cnt = 10**9
 		for i, e in enumerate(rem_edges):
 			c = options_count(rot, e)
 			if c == 0:
-				return False
+				return None
 			if c < best_cnt:
 				best_cnt = c
 				best_i = i
@@ -370,21 +350,14 @@ def embedding_search_exact(nodes: List[int], edges: List[EdgeT], seed: int) -> b
 			new_rot = try_insert_edge(rot, u, v, f, cu1, cv1)
 			if new_rot is None:
 				continue
-			if backtrack(new_rot, rest):
-				return True
+			res = backtrack(new_rot, rest)
+			if res is not None:
+				return res
 
-		return False
+		return None
 
 	return backtrack(rot0, rem)
 
-
-def is_planar_exact(nodes: List[int], edges: List[EdgeT]) -> bool:
-	comps = connected_components(nodes, edges)
-	for i, comp in enumerate(comps):
-		comp_e = edges_of_component(comp, edges)
-		if not embedding_search_exact(comp, comp_e, seed=97 + 17 * i):
-			return False
-	return True
 def embedding_search_with_blame(nodes: List[int], edges: List[EdgeT], seed: int) -> Optional[EdgeT]:
 	"""
 	Planarsa -> None
@@ -642,6 +615,97 @@ def layout_greedy(nodes: List[int], edges: List[EdgeT]) -> Dict[int, List[float]
 			break
 
 	return pos
+def _outer_face_cycle(rot: Rotation) -> List[int]:
+	"""
+	Rotation'dan yüzleri çıkarır, en uzun yüzü 'outer face' varsayar
+	ve o yüzün düğümlerini çevrim sırasıyla döndürür.
+	"""
+	faces = faces_from_rotation(rot)
+	if not faces:
+		return []
+	# en uzun yüz (dart sayısı en büyük)
+	outer = max(faces, key=lambda f: len(f))
+	cyc = face_vertices(outer)
+
+	# ardışık tekrarları temizle (bazı durumlarda aynı düğüm art arda gelebilir)
+	out = []
+	for v in cyc:
+		if not out or out[-1] != v:
+			out.append(v)
+	# kapalı çevrimde baş=son olabilir; onu da sadeleştir
+	if len(out) >= 2 and out[0] == out[-1]:
+		out.pop()
+	return out
+
+
+def layout_from_embedding_tutte(nodes: List[int], edges: List[EdgeT], rot: Rotation,
+                               R: float = 520.0, iters: int = 600, alpha: float = 0.85) -> Dict[int, List[float]]:
+	"""
+	Embedding (rotation system) üzerinden çizim:
+	1) Outer face düğümleri çembere sabitlenir.
+	2) Diğer düğümler için barycentric (komşu ortalaması) iterasyonu yapılır.
+	   x_v <- (1-alpha)*x_v + alpha*avg_{u in N(v)} x_u
+	"""
+	nodes = sorted(nodes)
+	edges = [canon_edge(u, v) for (u, v) in edges if u != v]
+	adj = build_adj(nodes, edges)
+
+	outer = _outer_face_cycle(rot)
+	if len(outer) < 3:
+		# outer yüz bulamazsak fallback
+		return layout_greedy(nodes, edges)
+
+	outer_set = set(outer)
+
+	# 1) Outer face çemberde sabit
+	pos: Dict[int, List[float]] = {}
+	m = len(outer)
+	for i, v in enumerate(outer):
+		theta = 2.0 * math.pi * i / m
+		pos[v] = [R * math.cos(theta), R * math.sin(theta)]
+
+	# 2) İç düğümler için başlangıç (küçük çember + gürültü)
+	rnd = random.Random(1234)
+	for v in nodes:
+		if v in outer_set:
+			continue
+		theta = rnd.random() * 2.0 * math.pi
+		rr = 0.35 * R
+		pos[v] = [rr * math.cos(theta) + rnd.uniform(-15, 15),
+		          rr * math.sin(theta) + rnd.uniform(-15, 15)]
+
+	# 3) Barycentric iterasyon: outer sabit, iç düğümler komşu ortalamasına çekilir
+	inner = [v for v in nodes if v not in outer_set and len(adj[v]) > 0]
+	if not inner:
+		return pos
+
+	for _ in range(iters):
+		max_move = 0.0
+		for v in inner:
+			nbrs = list(adj[v])
+			if not nbrs:
+				continue
+			ax = sum(pos[u][0] for u in nbrs) / len(nbrs)
+			ay = sum(pos[u][1] for u in nbrs) / len(nbrs)
+
+			# damping / relaxation
+			nx = (1.0 - alpha) * pos[v][0] + alpha * ax
+			ny = (1.0 - alpha) * pos[v][1] + alpha * ay
+
+			dx = nx - pos[v][0]
+			dy = ny - pos[v][1]
+			pos[v][0] = nx
+			pos[v][1] = ny
+
+			mv = abs(dx) + abs(dy)
+			if mv > max_move:
+				max_move = mv
+
+		# yakınsama kriteri (çok küçük hareket)
+		if max_move < 1e-3:
+			break
+
+	return pos
 
 
 # --- STREAMLIT ARAYÜZÜ ---
@@ -769,7 +833,15 @@ else:
 # --- ÇİZİM ALANI ---
 
 if st.session_state["mode"] == "planar":
-	coords = layout_greedy(st.session_state["nodes"], st.session_state["edges"])
+	# 1) önce embedding bulmaya çalış
+	rot = find_planar_rotation(st.session_state["nodes"], st.session_state["edges"], seed=97)
+
+	if rot is not None:
+		# 2) embedding tabanlı (outer face sabit + barycentric) çizim
+		coords = layout_from_embedding_tutte(st.session_state["nodes"], st.session_state["edges"], rot)
+	else:
+		# 3) embedding yoksa fallback
+		coords = layout_greedy(st.session_state["nodes"], st.session_state["edges"])
 else:
 	coords = circle_layout(st.session_state["nodes"], 350.0)
 
