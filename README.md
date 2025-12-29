@@ -69,7 +69,7 @@ This drawing procedure is independent of the planarity test and is designed to b
 The application is deployed via **Streamlit Cloud** and can be accessed at:
 
 🔗 **Live Demo**  
-https://interactive-planarity-solver-dogukan.streamlit.app
+[https://interactive-planarity-solver-dogukan.streamlit.app](https://interactive-planarity-solver-dogukan.streamlit.app/)
 
 > The application may experience a brief delay on first access due to cold-start behavior of the hosting platform.
 
