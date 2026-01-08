@@ -317,7 +317,7 @@ def find_planar_rotation(nodes: List[int], edges: List[EdgeT], seed: int = 97) -
 
 	def backtrack(rot: Rotation, rem_edges: List[EdgeT]) -> Optional[Rotation]:
 		if not rem_edges:
-			return rot  # ✅ embedding bulundu
+			return rot  # embedding bulundu
 
 		best_i = -1
 		best_cnt = 10**9
@@ -395,13 +395,13 @@ def embedding_search_with_blame(nodes: List[int], edges: List[EdgeT], seed: int)
 		if not rem_edges:
 			return None
 
-		# MRV: en az seçenekli kenarı seçelim (senin exact fonksiyonundaki mantığa yakın)
+		# MRV: en az seçenekli kenarı seçelim 
 		best_i = -1
 		best_cnt = 10**9
 		for i, e in enumerate(rem_edges):
 			c = options_count(rot, e)
 			if c == 0:
-				return e  # 🔥 suçlu kenar
+				return e  # suçlu kenar
 			if c < best_cnt:
 				best_cnt = c
 				best_i = i
@@ -897,3 +897,4 @@ if cid is not None:
 		st.session_state["sel"] = None
 		st.session_state["mode"] = "circle"  # Kenar değişince default'a dön
 	st.rerun()
+
