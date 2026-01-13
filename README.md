@@ -13,6 +13,15 @@ This repository presents an **interactive software system for exact planarity te
 The system combines an **exact combinatorial planarity testing algorithm**, based on rotation systems and backtracking, with a **heuristic drawing framework** aimed at producing readable planar (or near-planar) embeddings.  
 Beyond deciding planarity, the implementation emphasizes **explainability**, offering structural insights into the sources of non-planarity.
 
+### Online Access (Recommended)
+
+The application is deployed via **Streamlit Cloud** and can be accessed at:
+
+🔗 **Live Demo**  
+https://interactive-planarity-solver-dogukanv2.streamlit.app
+> The application may experience a brief delay on first access due to cold-start behavior of the hosting platform.
+
+
 ---
 
 ## Key Contributions
@@ -60,19 +69,6 @@ For visualization, an independent drawing heuristic is employed:
 
 This drawing procedure is independent of the planarity test and is designed to be computationally efficient while producing intuitive layouts.
 
----
-
-## Usage
-
-### Online Access (Recommended)
-
-The application is deployed via **Streamlit Cloud** and can be accessed at:
-
-🔗 **Live Demo**  
-https://interactive-planarity-solver-dogukanv2.streamlit.app
-> The application may experience a brief delay on first access due to cold-start behavior of the hosting platform.
-
----
 
 ### Local Execution
 
