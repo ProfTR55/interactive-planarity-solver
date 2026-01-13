@@ -708,193 +708,194 @@ def layout_from_embedding_tutte(nodes: List[int], edges: List[EdgeT], rot: Rotat
 	return pos
 
 
-# --- STREAMLIT ARAYÜZÜ ---
+# --- STREAMLIT INTERFACE ---
 
 if "nodes" not in st.session_state:
-	st.session_state["nodes"] = [1, 2, 3, 4]
+    st.session_state["nodes"] = [1, 2, 3, 4]
 if "edges" not in st.session_state:
-	st.session_state["edges"] = []
+    st.session_state["edges"] = []
 if "sel" not in st.session_state:
-	st.session_state["sel"] = None
+    st.session_state["sel"] = None
 if "mode" not in st.session_state:
-	st.session_state["mode"] = "circle"
+    st.session_state["mode"] = "circle"
 if "res" not in st.session_state:
-	st.session_state["res"] = (True, "Çizime başlayın.")
+    st.session_state["res"] = (True, "Ready to draw.")
 if "last_edge" not in st.session_state:
-	st.session_state["last_edge"] = None
+    st.session_state["last_edge"] = None
 if "critical_edge" not in st.session_state:
-	st.session_state["critical_edge"] = None  # kırmızı gösterilecek kenar
+    st.session_state["critical_edge"] = None  # edge to be highlighted in red
 if "pending_delete" not in st.session_state:
-	st.session_state["pending_delete"] = False  # ikinci basışta sil
+    st.session_state["pending_delete"] = False  # confirm delete on second click
 
+# Title matching your README
+st.title("Interactive Planarity Solver")
 
-st.title("KTU Planar Solver")
-
-# Anlık planarlık durumu (üst bilgi için)
+# Instant planarity check (for UI logic)
 planar_now = is_planar_exact(st.session_state["nodes"], st.session_state["edges"])
 
-# 6 Sütunlu Kontrol Paneli
+# 6-Column Control Panel
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 with c1:
-	if st.button("Düğüm Ekle"):
-		nid = max(st.session_state["nodes"]) + 1 if st.session_state["nodes"] else 1
-		st.session_state["nodes"].append(nid)
-		st.session_state["mode"] = "circle"
-		st.session_state["res"] = (True, "Düğüm eklendi.")
-		st.rerun()
+    if st.button("Add Node"):
+        nid = max(st.session_state["nodes"]) + 1 if st.session_state["nodes"] else 1
+        st.session_state["nodes"].append(nid)
+        st.session_state["mode"] = "circle"
+        st.session_state["res"] = (True, "Node added.")
+        st.rerun()
 
 with c2:
-	if st.button("Seçiliyi Sil"):
-		if st.session_state["sel"] is not None:
-			s = st.session_state["sel"]
-			if s in st.session_state["nodes"]:
-				st.session_state["nodes"].remove(s)
-			st.session_state["edges"] = [e for e in st.session_state["edges"] if s not in e]
-			st.session_state["sel"] = None
-			st.session_state["last_edge"] = None
-			st.session_state["mode"] = "circle"
-			st.session_state["res"] = (True, "Düğüm silindi.")
-			st.rerun()
+    if st.button("Delete Node"):
+        if st.session_state["sel"] is not None:
+            s = st.session_state["sel"]
+            if s in st.session_state["nodes"]:
+                st.session_state["nodes"].remove(s)
+            st.session_state["edges"] = [e for e in st.session_state["edges"] if s not in e]
+            st.session_state["sel"] = None
+            st.session_state["last_edge"] = None
+            st.session_state["mode"] = "circle"
+            st.session_state["res"] = (True, "Node deleted.")
+            st.rerun()
 
 with c3:
-	if st.button("Graf Planar mı?"):
-		planar = is_planar_exact(st.session_state["nodes"], st.session_state["edges"])
-		if planar:
-			st.session_state["res"] = (True, "Graf planar.")
-		else:
-			hint = kuratowski_hint(st.session_state["nodes"], st.session_state["edges"])
-			msg = "Graf nonplanar."
-			if hint:
-				msg += f" ({hint})"
-			st.session_state["res"] = (False, msg)
-		st.rerun()
+    if st.button("Check Planarity"):
+        planar = is_planar_exact(st.session_state["nodes"], st.session_state["edges"])
+        if planar:
+            st.session_state["res"] = (True, "Graph is planar.")
+        else:
+            hint = kuratowski_hint(st.session_state["nodes"], st.session_state["edges"])
+            msg = "Graph is non-planar."
+            if hint:
+                msg += f" ({hint})"
+            st.session_state["res"] = (False, msg)
+        st.rerun()
 
 with c4:
-	if st.button("Planar Yap", disabled=planar_now):
+    if st.button("Make Planar", disabled=planar_now):
 
-		# 2. basış: kırmızı gösterilen kenarı gerçekten sil
-		if st.session_state.get("pending_delete") and st.session_state.get("critical_edge") in st.session_state["edges"]:
-			e = st.session_state["critical_edge"]
-			st.session_state["edges"].remove(e)
-			st.session_state["pending_delete"] = False
-			st.session_state["last_edge"] = None
+        # 2nd Click: Actually delete the red edge
+        if st.session_state.get("pending_delete") and st.session_state.get("critical_edge") in st.session_state["edges"]:
+            e = st.session_state["critical_edge"]
+            st.session_state["edges"].remove(e)
+            st.session_state["pending_delete"] = False
+            st.session_state["last_edge"] = None
 
-			planar = is_planar_exact(st.session_state["nodes"], st.session_state["edges"])
-			if planar:
-				st.session_state["res"] = (True, f"Kenar silindi: {e}. Artık planar.")
-				st.session_state["critical_edge"] = None
-			else:
-				hint = kuratowski_hint(st.session_state["nodes"], st.session_state["edges"])
-				msg = f"Kenar silindi: {e}. Hâlâ nonplanar."
-				if hint:
-					msg += f" ({hint})"
-				st.session_state["res"] = (False, msg)
+            planar = is_planar_exact(st.session_state["nodes"], st.session_state["edges"])
+            if planar:
+                st.session_state["res"] = (True, f"Edge deleted: {e}. Graph is now planar.")
+                st.session_state["critical_edge"] = None
+            else:
+                hint = kuratowski_hint(st.session_state["nodes"], st.session_state["edges"])
+                msg = f"Edge deleted: {e}. Still non-planar."
+                if hint:
+					# Keep hint technical/short
+                    msg += f" ({hint})"
+                st.session_state["res"] = (False, msg)
 
-			st.session_state["mode"] = "circle"
-			st.rerun()
+            st.session_state["mode"] = "circle"
+            st.rerun()
 
-		# 1. basış: kritik kenarı bul ve kırmızıya boya (silme yok)
-		e = find_critical_edge(st.session_state["nodes"], st.session_state["edges"], trials=25)
+        # 1st Click: Find critical edge and highlight red (no delete yet)
+        e = find_critical_edge(st.session_state["nodes"], st.session_state["edges"], trials=25)
 
-		# fallback: kritik bulunamazsa eski davranışa dön
-		if e is None:
-			e = st.session_state["last_edge"] if st.session_state["last_edge"] in st.session_state["edges"] else st.session_state["edges"][-1]
+        # fallback: if no critical edge found, default to last added
+        if e is None:
+            e = st.session_state["last_edge"] if st.session_state["last_edge"] in st.session_state["edges"] else st.session_state["edges"][-1]
 
-		st.session_state["critical_edge"] = e
-		st.session_state["pending_delete"] = True
-		st.session_state["res"] = (True, f"Kırmızı kenar silinmek üzere seçildi: {e}. Silmek için tekrar 'Planar Yap'a bas.")
+        st.session_state["critical_edge"] = e
+        st.session_state["pending_delete"] = True
+        st.session_state["res"] = (True, f"Critical edge marked: {e}. Click 'Make Planar' again to delete.")
 
-		st.session_state["mode"] = "circle"
-		st.rerun()
+        st.session_state["mode"] = "circle"
+        st.rerun()
 
 
 with c5:
-	if st.button("Planar Çiz"):
-		st.session_state["mode"] = "planar"
-		st.rerun()
+    if st.button("Draw Planar"):
+        st.session_state["mode"] = "planar"
+        st.rerun()
 
 with c6:
-	if st.button("Kenarları Temizle"):
-		st.session_state["edges"] = []
-		st.session_state["sel"] = None
-		st.session_state["last_edge"] = None
-		st.session_state["mode"] = "circle"
-		st.session_state["res"] = (True, "Tüm kenarlar silindi.")
-		st.rerun()
+    if st.button("Clear Edges"):
+        st.session_state["edges"] = []
+        st.session_state["sel"] = None
+        st.session_state["last_edge"] = None
+        st.session_state["mode"] = "circle"
+        st.session_state["res"] = (True, "All edges cleared.")
+        st.rerun()
 
-# --- MESAJ GÖSTERİMİ ---
+# --- MESSAGE DISPLAY ---
 ok, msg = st.session_state["res"]
 if ok:
-	st.success(msg)
+    st.success(msg)
 else:
-	st.error(msg)
+    st.error(msg)
 
-# --- ÇİZİM ALANI ---
+# --- DRAWING AREA ---
 
 if st.session_state["mode"] == "planar":
-	# 1) önce embedding bulmaya çalış
-	rot = find_planar_rotation(st.session_state["nodes"], st.session_state["edges"], seed=97)
+    # 1) Try to find embedding
+    rot = find_planar_rotation(st.session_state["nodes"], st.session_state["edges"], seed=97)
 
-	if rot is not None:
-		# 2) embedding tabanlı (outer face sabit + barycentric) çizim
-		coords = layout_from_embedding_tutte(st.session_state["nodes"], st.session_state["edges"], rot)
-	else:
-		# 3) embedding yoksa fallback
-		coords = layout_greedy(st.session_state["nodes"], st.session_state["edges"])
+    if rot is not None:
+        # 2) Embedding-based drawing (Tutte / Barycentric)
+        coords = layout_from_embedding_tutte(st.session_state["nodes"], st.session_state["edges"], rot)
+    else:
+        # 3) Fallback
+        coords = layout_greedy(st.session_state["nodes"], st.session_state["edges"])
 else:
-	coords = circle_layout(st.session_state["nodes"], 350.0)
+    coords = circle_layout(st.session_state["nodes"], 350.0)
 
 nodes_vis = []
 for n in st.session_state["nodes"]:
-	x, y = coords.get(n, [0.0, 0.0])
-	nodes_vis.append(
-		Node(
-			id=n,
-			label=str(n),
-			x=float(x),
-			y=float(y),
-			size=25,
-			color="#FFD700" if n == st.session_state["sel"] else "#97C2FC",
-		)
-	)
+    x, y = coords.get(n, [0.0, 0.0])
+    nodes_vis.append(
+        Node(
+            id=n,
+            label=str(n),
+            x=float(x),
+            y=float(y),
+            size=25,
+            color="#FFD700" if n == st.session_state["sel"] else "#97C2FC",
+        )
+    )
 
 edges_vis = []
 crit = st.session_state.get("critical_edge")
 for u, v in st.session_state["edges"]:
-	u, v = canon_edge(u, v)
-	col = "red" if (crit is not None and canon_edge(crit[0], crit[1]) == (u, v)) else "black"
-	edges_vis.append(Edge(source=u, target=v, color=col))
+    u, v = canon_edge(u, v)
+    col = "red" if (crit is not None and canon_edge(crit[0], crit[1]) == (u, v)) else "black"
+    edges_vis.append(Edge(source=u, target=v, color=col))
 
 
 config = Config(width="100%", height=550, directed=False, physics={"enabled": False})
 clicked = agraph(nodes=nodes_vis, edges=edges_vis, config=config)
 
-# --- ETKİLEŞİM MANTIĞI ---
+# --- INTERACTION LOGIC ---
 
 cid = safe_parse_clicked(clicked)
 if cid is not None:
-	if st.session_state["sel"] is None:
-		st.session_state["sel"] = cid
-	elif st.session_state["sel"] == cid:
-		st.session_state["sel"] = None
-	else:
-		# İkinci tıklama: Kenar ekle veya sil
-		e = canon_edge(st.session_state["sel"], cid)
-		if e in st.session_state["edges"]:
-			st.session_state["edges"].remove(e)
-			st.session_state["critical_edge"] = None
-			st.session_state["pending_delete"] = False
-			st.session_state["res"] = (True, "Kenar silindi.")
+    if st.session_state["sel"] is None:
+        st.session_state["sel"] = cid
+    elif st.session_state["sel"] == cid:
+        st.session_state["sel"] = None
+    else:
+        # Second click: Add or Remove Edge
+        e = canon_edge(st.session_state["sel"], cid)
+        if e in st.session_state["edges"]:
+            st.session_state["edges"].remove(e)
+            st.session_state["critical_edge"] = None
+            st.session_state["pending_delete"] = False
+            st.session_state["res"] = (True, "Edge deleted.")
 
-		else:
-			st.session_state["edges"].append(e)
-			st.session_state["last_edge"] = e
-			st.session_state["critical_edge"] = None
-			st.session_state["pending_delete"] = False
-			st.session_state["res"] = (True, "Kenar eklendi.")
+        else:
+            st.session_state["edges"].append(e)
+            st.session_state["last_edge"] = e
+            st.session_state["critical_edge"] = None
+            st.session_state["pending_delete"] = False
+            st.session_state["res"] = (True, "Edge added.")
 
-		st.session_state["sel"] = None
-		st.session_state["mode"] = "circle"  # Kenar değişince default'a dön
-	st.rerun()
+        st.session_state["sel"] = None
+        st.session_state["mode"] = "circle" # Revert to circle mode on change
+    st.rerun()
 
